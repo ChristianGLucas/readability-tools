@@ -1,0 +1,230 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.readability_tools;
+
+// Data contracts for christiangeorgelucas/readability-tools — stateless TEXT
+// READABILITY & STATISTICS nodes wrapping the MIT-licensed text-readability
+// npm package (a faithful JavaScript/TypeScript port of Python textstat),
+// itself built only on the MIT `syllable` and `pluralize` packages — no
+// dictionary download, no native bindings, no network calls of any kind.
+// (Python's own textstat was evaluated first and rejected: its syllable
+// counting hard-depends on `pyphen`, which is GPL-2.0+/LGPL-2.1+/MPL-1.1
+// tri-licensed — copyleft, disqualifying — AND falls back to NLTK's cmudict
+// corpus, which nltk.download()s over the network on first use if not
+// already cached. Neither problem exists in this TypeScript dependency
+// chain: every scalar readability formula below is quantitative, published,
+// and independent of NLTK/pyphen entirely.)
+//
+// QUANTITATIVE READABILITY vs OUR OTHER TEXT PACKAGES. This package answers
+// "how complex/readable IS this text" via scores and counts — it is
+// deliberately distinct from christiangeorgelucas/nlp-tools (tokenize/POS/
+// NER — what the words in the text MEAN), christiangeorgelucas/spell-tools
+// (is a word spelled correctly), christiangeorgelucas/phonetic-tools (how a
+// word SOUNDS), and christiangeorgelucas/language-detect-tools (what
+// language the text IS). None of those compute a readability score.
+//
+// COMPOSABILITY. The shared input envelope's `text` field deliberately
+// matches the `text` field already used by christiangeorgelucas/nlp-tools'
+// Document, christiangeorgelucas/ocr-tools' OcrResult/TextOut,
+// christiangeorgelucas/pdf-tools' TextResult, christiangeorgelucas/
+// html-tools' TextResult, and christiangeorgelucas/language-detect-tools'
+// DetectInput — any of those packages' extracted text flows straight into
+// every node here with a trivial one-field mapping (e.g. OCR a scanned page
+// -> score its Flesch-Kincaid grade level in one flow edge).
+//
+// SIZE BOUND. `text` is capped at 50,000 UTF-16 characters (roughly a long
+// magazine article — ample for any single passage a caller would score, and
+// well inside the pinned-CPU per-invoke budget for the per-word syllable
+// scoring every formula here does at least once). Oversized or empty/
+// whitespace-only input returns a structured `error` token rather than
+// doing needless work or crashing.
+//
+// DETERMINISM. Every node is a pure function of `text` (plus its own
+// optional parameters) — same input, same output, always. No state is
+// held between invocations beyond the wrapped library's one-time module
+// load.
+
+// The single canonical input envelope every node in this package consumes.
+// Only `text` is required; the other fields are optional per-node knobs —
+// a node that does not use a given optional field simply ignores it.
+message ReadabilityText {
+  // The passage to analyze. Required, non-empty after trimming whitespace,
+  // and capped at 50,000 UTF-16 characters. Oversized or blank input
+  // returns a structured error instead of a crash.
+  string text = 1;
+  // Used by EstimateReadingTime only; ignored elsewhere. Assumed reading
+  // speed in words per minute. Unset (field absence) defaults to 200 (a
+  // commonly cited average adult silent-reading speed). Valid range 50-1000;
+  // out of range returns a structured error.
+  optional int32 words_per_minute = 2;
+  // Used by FindDifficultWords only; ignored elsewhere. A word counts as
+  // "difficult" when it has at least this many syllables AND is absent from
+  // the bundled Dale-Chall list of ~3000 familiar English words. Unset
+  // defaults to 2 (the wrapped library's own default, matching the classic
+  // Dale-Chall/Gunning-Fog convention). Valid range 1-10; out of range
+  // returns a structured error.
+  optional int32 difficult_word_syllable_threshold = 3;
+  // Used by ScoreConsensusGradeLevel only; ignored elsewhere. When true,
+  // `grade_float` is the node's primary result; when false/unset,
+  // `grade_label` (a human-readable "Nth and Nth grade" string) is primary.
+  // Both fields are always populated regardless of this flag.
+  optional bool float_output = 4;
+}
+
+// A single named readability formula's numeric result. Reused across every
+// scalar-score node in this package (`formula` names which one ran, since
+// several nodes share this output type). `score` is always a real,
+// meaningful value when `error` is empty -- including zero or negative
+// values, which several of these formulas can legitimately produce for very
+// easy or very short text -- so it is marked `optional` (explicit proto3
+// field presence) to guarantee it is never dropped from a JSON response
+// just because it happens to equal 0.
+message ReadabilityScore {
+  optional double score = 1;
+  // Which formula produced `score`, e.g. "flesch_reading_ease",
+  // "gunning_fog". Always set, even on error.
+  string formula = 2;
+  // Set (non-empty) instead of computing a score when `text` is empty/
+  // blank or oversized. `score` is unset when `error` is set.
+  string error = 3;
+}
+
+// Character-level counts for a passage.
+message CharacterCounts {
+  // Total non-space characters (UTF-16 code units).
+  optional int32 character_count = 1;
+  // Total letters only -- punctuation excluded, in addition to spaces.
+  // Digits are NOT excluded (the wrapped library's punctuation-stripping
+  // pass only removes punctuation characters, e.g. "2024" survives it
+  // unchanged) -- so letter_count can exceed a strict "alphabetic
+  // characters" count on text containing digits. Always <= character_count.
+  optional int32 letter_count = 2;
+  string error = 3;
+}
+
+// Word (lexicon) count for a passage -- whitespace-delimited tokens with
+// punctuation stripped.
+message WordCounts {
+  optional int32 word_count = 1;
+  string error = 2;
+}
+
+// Sentence count for a passage, using the wrapped library's sentence
+// boundary heuristic (terminal .?! followed by a capital letter; a run
+// of two words or fewer is not counted as its own sentence). At least 1 is
+// always returned for non-empty text, even text with no clear terminal
+// punctuation.
+message SentenceCounts {
+  optional int32 sentence_count = 1;
+  string error = 2;
+}
+
+// Total syllable count for a passage, plus the average syllables per word
+// that several formulas below (Flesch Reading Ease, Flesch-Kincaid Grade)
+// are directly built from.
+message SyllableCounts {
+  optional int32 syllable_count = 1;
+  optional double average_syllables_per_word = 2;
+  string error = 3;
+}
+
+// A count of words falling in one syllable-count bucket: POLYSYLLABIC
+// (3 or more syllables -- the SMOG index's core input) or MONOSYLLABIC
+// (exactly 1 syllable). Shared by CountPolysyllabicWords and
+// CountMonosyllabicWords; `bucket` names which one ran.
+message WordSyllableBucketCounts {
+  optional int32 count = 1;
+  optional int32 total_words = 2;
+  string bucket = 3;
+  string error = 4;
+}
+
+// Words in the passage classified as "difficult" (see
+// ReadabilityText.difficult_word_syllable_threshold), the input to the
+// Dale-Chall and Gunning Fog formulas -- both the count and the actual
+// (deduplicated) word list.
+message DifficultWordCounts {
+  optional int32 count = 1;
+  repeated string words = 2;
+  // Echoes the threshold actually used (the request's value, or the
+  // default of 2 when unset).
+  optional int32 syllable_threshold = 3;
+  string error = 4;
+}
+
+// An estimated silent-reading time for the passage, from its word count and
+// an assumed reading speed (see ReadabilityText.words_per_minute).
+message ReadingTimeEstimate {
+  optional double minutes = 1;
+  // The same estimate, rounded up to the nearest whole second -- convenient
+  // for a UI's "~N sec read" label on very short passages.
+  optional int32 seconds = 2;
+  // Echoes the words-per-minute rate actually used.
+  optional int32 words_per_minute = 3;
+  string error = 4;
+}
+
+// A single consensus estimated school-grade level, computed the same way
+// the wrapped library's (and Python textstat's) `text_standard` does: run
+// eight of the formulas below (Flesch-Kincaid Grade, the Flesch Reading
+// Ease grade-equivalent, SMOG, Coleman-Liau, ARI, Dale-Chall, Linsear
+// Write, Gunning Fog), round each to its neighboring integer grades, and
+// return the single grade value that recurs most often across all of them
+// (a mode, not an average) -- a robustness trick that keeps any one
+// formula's outlier from skewing the consensus.
+message ConsensusGradeLevel {
+  // Human-readable form, e.g. "8th and 9th grade". Always populated.
+  string grade_label = 1;
+  // The same consensus grade as a plain number. Always populated
+  // regardless of ReadabilityText.float_output (that flag only changes
+  // which field a caller should treat as primary).
+  optional double grade_float = 2;
+  string error = 3;
+}
+
+// A single-call bundle of every count and formula in this package, for a
+// caller that wants the full picture without 18 separate invocations.
+// Every field mirrors the identically-computed value from its dedicated
+// node (e.g. `flesch_reading_ease` here is exactly ScoreFleschReadingEase's
+// `score`) -- this node trades one round trip for doing strictly more work,
+// it does not compute anything differently.
+message ReadabilityReport {
+  optional int32 character_count = 1;
+  optional int32 word_count = 2;
+  optional int32 sentence_count = 3;
+  optional int32 syllable_count = 4;
+  optional int32 polysyllable_count = 5;
+  optional int32 monosyllable_count = 6;
+  optional int32 difficult_word_count = 7;
+  optional double flesch_reading_ease = 8;
+  optional double flesch_kincaid_grade = 9;
+  optional double gunning_fog = 10;
+  optional double smog_index = 11;
+  optional double coleman_liau_index = 12;
+  optional double automated_readability_index = 13;
+  optional double dale_chall_score = 14;
+  optional double linsear_write = 15;
+  optional double lix = 16;
+  optional double rix = 17;
+  string consensus_grade_label = 18;
+  optional double consensus_grade_float = 19;
+  optional double estimated_reading_minutes = 20;
+  string error = 21;
+}

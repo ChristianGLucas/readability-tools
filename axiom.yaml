@@ -1,0 +1,234 @@
+name: christiangeorgelucas/readability-tools
+version: 0.1.0
+language: typescript
+description: >-
+  Composable Axiom text readability & statistics nodes wrapping the
+  MIT-licensed text-readability npm package (a faithful JavaScript/
+  TypeScript port of Python's textstat, built only on the MIT `syllable`
+  and `pluralize` packages -- no dictionary download, no native bindings,
+  no network calls). Ten classic readability formulas (Flesch Reading
+  Ease, Flesch-Kincaid Grade, Gunning Fog, SMOG, Coleman-Liau, Automated
+  Readability Index, Dale-Chall, Linsear Write, LIX, RIX), a consensus
+  estimated grade level across eight of them, and the counting primitives
+  they're built from (character/letter, word, sentence, syllable,
+  polysyllable/monosyllable word, difficult-word counts, and estimated
+  reading time), plus a single-call bundle node that returns everything at
+  once. Every node is a stateless, deterministic, single-input/
+  single-output op over one shared {text} envelope -- no persistence, no
+  external service.
+license: MIT
+author: Christian George Lucas
+tags:
+  - readability
+  - text-statistics
+  - flesch-kincaid
+  - gunning-fog
+  - smog
+  - coleman-liau
+  - dale-chall
+  - text-complexity
+  - reading-level
+  - text
+nodes:
+    - name: ScoreFleschReadingEase
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Flesch Reading Ease score: 206.835 - 1.015*(words/sentences) -
+        84.6*(syllables/words). Higher is easier to read, roughly 0-100
+        (scores outside that range are possible for very simple or very
+        dense text -- there is no hard clamp). Published bands: 90-100 very
+        easy, 60-69 standard (roughly 8th-9th grade), 30-49 difficult,
+        0-29 very confusing. E.g. "The cat sat on the mat." scores in the
+        upper 100s (extremely easy); dense academic prose typically scores
+        under 30. Empty/whitespace-only text returns EMPTY_TEXT; text over
+        50,000 characters returns TEXT_TOO_LONG -- both as a structured
+        `error` rather than a crash.
+    - name: ScoreFleschKincaidGrade
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Flesch-Kincaid Grade Level: 0.39*(words/sentences) +
+        11.8*(syllables/words) - 15.59. Outputs a US school-grade number --
+        e.g. a score of 8.0 means an eighth grader could be expected to
+        read the text. Same error contract as ScoreFleschReadingEase
+        (EMPTY_TEXT / TEXT_TOO_LONG).
+    - name: ScoreGunningFog
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Gunning Fog index: 0.4 * ((words/sentences) + 100*(complex
+        words/words)), where a "complex" word has 3+ syllables. Outputs a
+        US school-grade number; a score above 12 is generally considered
+        hard to read on a first pass. Same error contract as
+        ScoreFleschReadingEase.
+    - name: ScoreSmogIndex
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        SMOG (Simple Measure of Gobbledygook) index: 1.043 * sqrt(30 *
+        polysyllable_words/sentences) + 3.1291, using every polysyllabic
+        (3+ syllable) word in the passage. Outputs a US school-grade
+        number. The formula was normed on 30-sentence samples and is only
+        statistically meaningful with at least 3 sentences -- text with
+        fewer than 3 sentences returns a score of exactly 0 (the library's
+        documented behavior, not an error). Same error contract otherwise.
+    - name: ScoreColemanLiauIndex
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Coleman-Liau index: 0.058*(letters per 100 words) -
+        0.296*(sentences per 100 words) - 15.8. Unlike the syllable-based
+        formulas, this one is driven by letter counts, which makes it
+        comparatively robust on text with unusual/invented words. Outputs
+        a US school-grade number. Same error contract as
+        ScoreFleschReadingEase.
+    - name: ScoreAutomatedReadabilityIndex
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Automated Readability Index (ARI): 4.71*(characters/words) +
+        0.5*(words/sentences) - 21.43. Outputs a US school-grade number
+        approximating the grade needed to comprehend the text (e.g. 6.5
+        means roughly 6th-7th grade). Same error contract as
+        ScoreFleschReadingEase.
+    - name: ScoreDaleChallReadability
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        New Dale-Chall readability score: 0.1579*(percent difficult
+        words) + 0.0496*(words/sentences), +3.6365 when over 5% of words
+        are difficult. A word is "difficult" when it is absent from the
+        bundled list of ~3000 words familiar to an average 4th grader
+        (Dale & Chall's original word list). Score bands: 4.9 or below ~
+        4th grade or lower, 9.0-9.9 ~ college. Same error contract as
+        ScoreFleschReadingEase.
+    - name: ScoreLinsearWrite
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        Linsear Write formula over the first 100 words of the passage:
+        count 1 point per easy word (under 3 syllables) and 3 points per
+        hard word (3+ syllables), divide by the sentence count within
+        that 100-word window, then halve (with a -2 adjustment when the
+        raw number exceeds 20). Outputs a US school-grade number. Same
+        error contract as ScoreFleschReadingEase.
+    - name: ScoreLix
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        LIX (Läsbarhetsindex / readability index): average words per
+        sentence, plus the percentage of words longer than 6 characters.
+        A Swedish formula that (unlike the syllable-based ones above)
+        works reasonably across languages since it only counts word
+        length and sentence length. Published bands: under 25 very easy,
+        25-34 easy, 35-44 standard, 45-54 difficult, 55+ very difficult.
+        Same error contract as ScoreFleschReadingEase.
+    - name: ScoreRix
+      input: ReadabilityText
+      output: ReadabilityScore
+      description: >-
+        RIX (rate index): count of words longer than 6 characters, divided
+        by the sentence count -- a simplified companion to LIX using only
+        long-word density. Same error contract as ScoreFleschReadingEase.
+    - name: CountCharacters
+      input: ReadabilityText
+      output: CharacterCounts
+      description: >-
+        Character-level counts for the passage: `character_count` (all
+        non-space characters) and `letter_count` (letters only --
+        punctuation excluded, but NOT digits: the underlying
+        punctuation-stripping pass leaves digit characters untouched).
+        E.g. "Hi, Bob! 2024" has character_count=11 and letter_count=9
+        (the two punctuation marks are stripped; "2024" is not). Same
+        error contract as ScoreFleschReadingEase.
+    - name: CountWords
+      input: ReadabilityText
+      output: WordCounts
+      description: >-
+        Word (lexicon) count: whitespace-delimited tokens with punctuation
+        stripped. E.g. "Hello, world!" -> 2. Same error contract as
+        ScoreFleschReadingEase.
+    - name: CountSentences
+      input: ReadabilityText
+      output: SentenceCounts
+      description: >-
+        Sentence count using a terminal .?!  + capital-letter-follows
+        heuristic (a run of 2 words or fewer is not counted as its own
+        sentence; at least 1 is always returned for non-empty text). E.g.
+        "One. Two. Three." -> 3. Same error contract as
+        ScoreFleschReadingEase.
+    - name: CountSyllables
+      input: ReadabilityText
+      output: SyllableCounts
+      description: >-
+        Total syllable count for the passage (via the `syllable` npm
+        package's rule-based English heuristic) plus the average syllables
+        per word that the Flesch formulas are built from. E.g. "readability"
+        -> 5 syllables. Same error contract as ScoreFleschReadingEase.
+    - name: CountPolysyllabicWords
+      input: ReadabilityText
+      output: WordSyllableBucketCounts
+      description: >-
+        Count of words with 3 or more syllables (`bucket`="POLYSYLLABIC")
+        -- exactly the input SMOG is built from. E.g. "The organization
+        celebrated" -> 2 (organization, celebrated). Same error contract
+        as ScoreFleschReadingEase.
+    - name: CountMonosyllabicWords
+      input: ReadabilityText
+      output: WordSyllableBucketCounts
+      description: >-
+        Count of words with exactly 1 syllable (`bucket`="MONOSYLLABIC").
+        E.g. "The cat sat on the mat" -> 6. Same error contract as
+        ScoreFleschReadingEase.
+    - name: FindDifficultWords
+      input: ReadabilityText
+      output: DifficultWordCounts
+      description: >-
+        Words classified as "difficult" -- at least
+        `difficult_word_syllable_threshold` syllables (default 2) AND
+        absent from the bundled Dale-Chall list of ~3000 familiar English
+        words -- both the count and the actual deduplicated word list.
+        This is the Dale-Chall/Gunning-Fog formulas' shared building
+        block, exposed directly for callers that want to highlight which
+        specific words are driving a high complexity score. Same error
+        contract as ScoreFleschReadingEase, plus INVALID_SYLLABLE_THRESHOLD
+        when difficult_word_syllable_threshold is outside 1-10.
+    - name: EstimateReadingTime
+      input: ReadabilityText
+      output: ReadingTimeEstimate
+      description: >-
+        Estimated silent-reading time from word count / words_per_minute
+        (default 200, a commonly cited average adult reading speed),
+        returned as both fractional minutes and whole seconds (rounded
+        up). Same error contract as ScoreFleschReadingEase, plus
+        INVALID_WORDS_PER_MINUTE when words_per_minute is outside 50-1000.
+    - name: ScoreConsensusGradeLevel
+      input: ReadabilityText
+      output: ConsensusGradeLevel
+      description: >-
+        A single consensus estimated US school-grade level: runs eight
+        formulas (Flesch-Kincaid Grade, the Flesch Reading Ease
+        grade-equivalent, SMOG, Coleman-Liau, ARI, Dale-Chall, Linsear
+        Write, Gunning Fog), rounds each to its neighboring integer
+        grades, and returns the grade value that recurs most often across
+        all of them (the statistical mode, robust to any single formula's
+        outlier) -- e.g. "8th and 9th grade". Set float_output=true to
+        get the same consensus as a plain number in `grade_float` instead
+        of (in addition to) the label. Same error contract as
+        ScoreFleschReadingEase.
+    - name: AnalyzeReadability
+      input: ReadabilityText
+      output: ReadabilityReport
+      description: >-
+        Every count and formula in this package for one passage, in a
+        single call: character/word/sentence/syllable/polysyllable/
+        monosyllable/difficult-word counts, all ten readability formulas,
+        the consensus grade level, and the estimated reading time.
+        Convenient for a caller that wants the full picture without 18
+        separate invocations -- each field is computed identically to its
+        dedicated node (e.g. `flesch_reading_ease` here equals
+        ScoreFleschReadingEase's `score` for the same text). Same error
+        contract as ScoreFleschReadingEase, plus
+        INVALID_WORDS_PER_MINUTE/INVALID_SYLLABLE_THRESHOLD if those
+        optional fields are set out of range.
