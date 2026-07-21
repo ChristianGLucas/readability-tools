@@ -60,6 +60,17 @@ package christiangeorgelucas.readability_tools;
 // optional parameters) — same input, same output, always. No state is
 // held between invocations beyond the wrapped library's one-time module
 // load.
+//
+// INTERMEDIATE ROUNDING. Faithfully to Python textstat, several formulas
+// below (Flesch Reading Ease, Flesch-Kincaid Grade, Coleman-Liau, LIX) do
+// not plug raw ratios straight into their published coefficients — they
+// first round the average-words-per-sentence / average-syllables-per-word
+// / average-letters-per-100-words intermediate values to 1-2 decimal
+// places, THEN apply the formula. This is real, deterministic, documented
+// library behavior (not a bug), but it means a score computed by plugging
+// unrounded ratios directly into the textbook formula can differ from this
+// package's output by a few tenths on some inputs. See each Score* node's
+// axiom.yaml description for that formula's specific coefficients.
 
 // The single canonical input envelope every node in this package consumes.
 // Only `text` is required; the other fields are optional per-node knobs —
