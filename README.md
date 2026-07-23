@@ -1,6 +1,6 @@
 # christiangeorgelucas/readability-tools
 
-Composable [Axiom](https://axiom.dev) nodes for **text readability &
+Composable [Axiom](https://axiomide.com) nodes for **text readability &
 statistics** — quantitative complexity/reading-level scoring, distinct from
 our NLP (tokenize/POS/NER), spell-correction, phonetic, and
 language-detection packages, none of which score how readable a passage is.
