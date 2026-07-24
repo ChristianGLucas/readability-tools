@@ -14,8 +14,6 @@
 
 import rs from 'text-readability';
 
-export const MAX_TEXT_CHARS = 50_000;
-
 export const DEFAULT_WORDS_PER_MINUTE = 200;
 export const MIN_WORDS_PER_MINUTE = 50;
 export const MAX_WORDS_PER_MINUTE = 1000;
@@ -26,18 +24,15 @@ export const MAX_SYLLABLE_THRESHOLD = 10;
 
 export type ValidationErrorToken =
   | 'EMPTY_TEXT'
-  | 'TEXT_TOO_LONG'
   | 'INVALID_WORDS_PER_MINUTE'
   | 'INVALID_SYLLABLE_THRESHOLD';
 
-// Bound the one dimension every node's cost scales with -- text length --
-// BEFORE any per-word regex work runs. Also rejects blank/whitespace-only
-// text, which every formula below would otherwise silently score as some
-// degenerate zero/NaN-derived value instead of a clear error.
+// Rejects blank/whitespace-only text, which every formula below would
+// otherwise silently score as some degenerate zero/NaN-derived value
+// instead of a clear error. No length limit -- payload size is the
+// platform's job, not this node's.
 export function validateText(text: string): ValidationErrorToken | null {
   if (!text || text.trim().length === 0) return 'EMPTY_TEXT';
-  // .length is UTF-16 code units, matching the documented cap.
-  if (text.length > MAX_TEXT_CHARS) return 'TEXT_TOO_LONG';
   return null;
 }
 

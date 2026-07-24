@@ -49,12 +49,9 @@ package christiangeorgelucas.readability_tools;
 // every node here with a trivial one-field mapping (e.g. OCR a scanned page
 // -> score its Flesch-Kincaid grade level in one flow edge).
 //
-// SIZE BOUND. `text` is capped at 50,000 UTF-16 characters (roughly a long
-// magazine article — ample for any single passage a caller would score, and
-// well inside the pinned-CPU per-invoke budget for the per-word syllable
-// scoring every formula here does at least once). Oversized or empty/
-// whitespace-only input returns a structured `error` token rather than
-// doing needless work or crashing.
+// No length limit is imposed on `text` — payload size is the platform's
+// job, not this package's. Empty/whitespace-only input returns a
+// structured `error` token rather than doing needless work or crashing.
 //
 // DETERMINISM. Every node is a pure function of `text` (plus its own
 // optional parameters) — same input, same output, always. No state is
@@ -76,9 +73,8 @@ package christiangeorgelucas.readability_tools;
 // Only `text` is required; the other fields are optional per-node knobs —
 // a node that does not use a given optional field simply ignores it.
 message ReadabilityText {
-  // The passage to analyze. Required, non-empty after trimming whitespace,
-  // and capped at 50,000 UTF-16 characters. Oversized or blank input
-  // returns a structured error instead of a crash.
+  // The passage to analyze. Required, non-empty after trimming whitespace.
+  // Blank input returns a structured error instead of a crash.
   string text = 1;
   // Used by EstimateReadingTime only; ignored elsewhere. Assumed reading
   // speed in words per minute. Unset (field absence) defaults to 200 (a

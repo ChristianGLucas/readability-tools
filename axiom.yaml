@@ -1,5 +1,5 @@
 name: christiangeorgelucas/readability-tools
-version: 0.1.0
+version: 0.1.1
 language: typescript
 description: >-
   Composable Axiom text readability & statistics nodes wrapping the

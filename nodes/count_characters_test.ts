@@ -1,7 +1,6 @@
 import { ReadabilityText } from '../gen/messages_pb';
 import { countCharacters } from './count_characters';
 import { ctx } from './testkit';
-import { MAX_TEXT_CHARS } from './readability_helper';
 
 function req(text: string): ReadabilityText {
   const input = new ReadabilityText();
@@ -52,8 +51,8 @@ describe('CountCharacters', () => {
     expect(out.getError()).toBe('EMPTY_TEXT');
   });
 
-  it('ERROR PATH: oversized text returns TEXT_TOO_LONG', async () => {
-    const out = await countCharacters(ctx, req('a'.repeat(MAX_TEXT_CHARS + 1)));
-    expect(out.getError()).toBe('TEXT_TOO_LONG');
+  it('handles a large input without crashing (no payload-length cap)', async () => {
+    const out = await countCharacters(ctx, req('a '.repeat(60_000)));
+    expect(out.getError()).toBe('');
   });
 });
